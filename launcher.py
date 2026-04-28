@@ -57,45 +57,6 @@ def generate_config_files(root_port: int, mapping: dict, taken_ports: set, direc
     return
 
 
-def valid_master(master_file: str) -> tuple[int, dict, set]:
-    try: #[[hostname, port], [...]]
-        records = [x[:-1].split(",") for x in open(master_file).readlines()]
-    except FileNotFoundError:
-        return None, None, None
-    
-    try:
-        root_port = int(records.pop(0)[0])
-    except ValueError:
-        return None, None, None
-    
-    if not valid_port(root_port):
-        return None, None, None
-        
-    mapping = {}
-    taken_ports = set([root_port])
-
-    for domain, port in records:
-        try:
-            port = int(port)
-        except ValueError:
-            return None, None, None
-
-        if not valid_hostname(domain) or not valid_port(port):
-            return None, None, None
-        
-        # Same domain must have same port
-        if mapping.get(domain) and mapping[domain] != port:
-            return None, None, None
-    
-        # Same port must have same domain (can be changed)
-        if port in taken_ports:
-            return None, None, None
-        
-        mapping[domain] = port
-        taken_ports.add(port)
-
-    return root_port, mapping, taken_ports
-
 def validate_arguments(args: list[str]) -> bool:
     return len(args) == 2
 

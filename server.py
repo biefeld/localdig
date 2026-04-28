@@ -66,46 +66,6 @@ def handle_request(server_socket: socket.socket, mapping: dict, taken_ports: set
                 conn.sendall((f"{response}\n").encode()) 
 
 
-def valid_single(single_file: str) -> tuple[int, dict, set]:
-    try: #[[hostname, port], [...]]
-        records = [x[:-1].split(",") for x in open(single_file).readlines()]
-    except FileNotFoundError:
-        return None, None, None
-    
-    try:
-        server_port = int(records.pop(0)[0])
-    except ValueError:
-        return None, None, None
-    
-    if not valid_port(server_port):
-        return None, None, None
-        
-    mapping = {}
-    taken_ports = set([server_port])
-
-    for domain, port in records:
-        try:
-            port = int(port)
-        except ValueError:
-            return None, None, None
-
-        if not valid_partial_hostname(domain) or not valid_port(port):
-            return None, None, None
-        
-        # Same domain must have same port
-        if mapping.get(domain) and mapping[domain] != port:
-            return None, None, None
-    
-        # Same port must have same domain (can be changed)
-        if port in taken_ports:
-            return None, None, None
-        
-        mapping[domain] = port
-        taken_ports.add(port)
-
-    return server_port, mapping, taken_ports
-
-
 # Expect [config_file: string]
 def valid_args(args: list[str]) -> bool:
     return len(args) == 1

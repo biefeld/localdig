@@ -32,3 +32,83 @@ def split_hostname(hostname: str) -> tuple[str, str, str]:
         auth_query = hostname
 
         return root_query, tld_query, auth_query
+
+def valid_master(master_file: str) -> tuple[int, dict, set]:
+    try: #[[hostname, port], [...]]
+        records = [x[:-1].split(",") for x in open(master_file).readlines()]
+    except FileNotFoundError:
+        return None, None, None
+    
+    try:
+        root_port = int(records.pop(0)[0])
+    except ValueError:
+        return None, None, None
+    
+    if not valid_port(root_port):
+        return None, None, None
+        
+    mapping = {}
+    taken_ports = set([root_port])
+
+    for domain, port in records:
+        try:
+            port = int(port)
+        except ValueError:
+            return None, None, None
+
+        if not valid_hostname(domain) or not valid_port(port):
+            return None, None, None
+        
+        # Same domain must have same port
+        if mapping.get(domain) and mapping[domain] != port:
+            return None, None, None
+    
+        # Same port must have same domain (can be changed)
+        if port in taken_ports:
+            return None, None, None
+        
+        mapping[domain] = port
+        taken_ports.add(port)
+
+    return root_port, mapping, taken_ports
+
+
+def valid_single(single_file: str) -> tuple[int, dict, set]:
+    try: #[[hostname, port], [...]]
+        records = [x[:-1].split(",") for x in open(single_file).readlines()]
+    except FileNotFoundError:
+        return None, None, None
+    
+    try:
+        server_port = int(records.pop(0)[0])
+    except ValueError:
+        return None, None, None
+    
+    if not valid_port(server_port):
+        return None, None, None
+        
+    mapping = {}
+    taken_ports = set([server_port])
+
+    for domain, port in records:
+        try:
+            port = int(port)
+        except ValueError:
+            return None, None, None
+
+        if not valid_partial_hostname(domain) or not valid_port(port):
+            return None, None, None
+        
+        # Same domain must have same port
+        if mapping.get(domain) and mapping[domain] != port:
+            return None, None, None
+    
+        # Same port must have same domain (can be changed)
+        if port in taken_ports:
+            return None, None, None
+        
+        mapping[domain] = port
+        taken_ports.add(port)
+
+    return server_port, mapping, taken_ports
+
