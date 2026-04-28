@@ -1,355 +1,173 @@
-"""
-Write code for your verifier here.
-
-You may import library modules allowed by the specs, as well as your own other modules.
-"""
 from sys import argv
+from utils import valid_master, valid_single, valid_directory
 import pathlib
 
-master = []
-root = []
-tld = []
-auth = []
+def get_root_label(hostname: str) -> str:
+    return hostname.split('.')[-1]
 
 
+def get_tld_name(hostname: str) -> str:
+    parts = hostname.split('.')
+    return '.'.join(parts[-2:])
 
-def remove_duplicates(records: list[list[str]]) -> list[list[str]]:
-    ports = [r[1] for r in records]
 
-    #No duplicate ports
-    if len(ports) == len(set(ports)):
-        return records 
-    
-    #Extract duplicate ports
-    dupes = list({p for p in ports if ports.count(p) > 1})
+def classify_file(mapping: dict[str, int]) -> str | None:
+    depths = {len(hostname.split('.')) for hostname in mapping}
+    if depths == {1}:
+        return 'root'
+    if depths == {2}:
+        return 'tld'
+    if depths and min(depths) >= 3:
+        return 'auth'
+    return None
 
-    #[ [domain1, domain2, ... , domainN] , port ]
-    new_records = []
 
-    #Scan through duplicate ports
-    for dupe in dupes:
-        new_record = []
+def parse_single_files(directory_path: str):
+    root_file = None
+    tld_files = []
+    auth_files = []
 
-        for r in records:
-            #If we find record with the same port, add to new record
-            if r[1] == dupe:
-                new_record.append(r[0])
+    for path in pathlib.Path(directory_path).glob('*.conf'):
+        server_port, mapping, _ = valid_single(str(path))
+        if not server_port:
+            return None, None, None
 
-            #Otherwise change nothing
-            else:
-                new_records.append(r)
+        file_type = classify_file(mapping)
+        if file_type == 'root':
+            if root_file is not None:
+                return None, None, None
+            root_file = (path, server_port, mapping)
+        elif file_type == 'tld':
+            tld_files.append((path, server_port, mapping))
+        elif file_type == 'auth':
+            auth_files.append((path, server_port, mapping))
+        else:
+            return None, None, None
 
-        #If we have have made a new record, add to all records
-        if len(new_record) != 0:
-            new_records.append([new_record, dupe])
-        
-    return new_records
-    
+    return root_file, tld_files, auth_files
 
-def match_master(domain: str, port: str) -> bool:
-    global master
-    #print(f"Checking master {domain} @ {port}")
 
-    try:
-        domain.split(".")
-    except AttributeError:
+def validate_root_file(root_port: int, root_file, master_mapping: dict[str, int]) -> bool:
+    if root_file is None:
+        return False
 
-        #Case where we have multiple domains to one port
-        for d in domain:
-            #Check that auth domain and port match with master
-            for record in master[1:]:
-                if (record[0] == d):
-                    if (record[1] != port):
-                        return False
-            return True
-                        
-    
-    #Check that auth domain and port match with master
-    for record in master[1:]:
-        if (record[0] == domain):
-            if (record[1] == port):
-                return True
-            else:
+    _, root_server_port, root_mapping = root_file
+    if root_server_port != root_port:
+        return False
+
+    expected_roots = {get_root_label(hostname) for hostname in master_mapping}
+    return set(root_mapping.keys()) == expected_roots
+
+
+def validate_tld_files(root_mapping: dict[str, int], master_mapping: dict[str, int], tld_files: list):
+    tld_by_root = {}
+
+    for _, tld_server_port, tld_mapping in tld_files:
+        roots = {get_root_label(hostname) for hostname in tld_mapping}
+        if len(roots) != 1:
+            return None
+
+        root_label = next(iter(roots))
+        if tld_server_port != root_mapping.get(root_label):
+            return None
+
+        expected_auths = {
+            get_tld_name(hostname)
+            for hostname in master_mapping
+            if get_root_label(hostname) == root_label
+        }
+        if set(tld_mapping.keys()) != expected_auths:
+            return None
+
+        tld_by_root[root_label] = tld_mapping
+
+    return tld_by_root
+
+
+def validate_auth_files(master_mapping: dict[str, int], tld_lookup: dict[str, int], auth_files: list) -> bool:
+    expected_tlds = {get_tld_name(hostname) for hostname in master_mapping}
+    all_auth_names = set()
+
+    for _, _, auth_mapping in auth_files:
+        auth_names = {get_tld_name(hostname) for hostname in auth_mapping}
+        if len(auth_names) != 1:
+            return False
+        all_auth_names.update(auth_names)
+
+    if all_auth_names != expected_tlds:
+        return False
+
+    for _, auth_server_port, auth_mapping in auth_files:
+        auth_name = get_tld_name(next(iter(auth_mapping)))
+        expected_hostnames = {
+            hostname
+            for hostname in master_mapping
+            if get_tld_name(hostname) == auth_name
+        }
+        if set(auth_mapping.keys()) != expected_hostnames:
+            return False
+
+        if auth_server_port != tld_lookup.get(auth_name):
+            return False
+
+        for hostname, port in auth_mapping.items():
+            if master_mapping.get(hostname) != port:
                 return False
 
-    return False    
-
-
-def check_auth(domain:list[str], port: str) -> bool:
-    global auth
-    #print(f"Checking auth {domain} @ {port}")
-
-    try:
-        #Get index of file which has the port we are looking for
-        idx = [records[0][0] for records in auth].index(port)
-    except ValueError:    
-        return False #If we dont find a matching port
-    
-
-    for record in auth[idx][1:]:
-            try:
-                record[0].split(".")
-            except AttributeError:  
-                #Case where we have multiple domains to one port
-                for r in record[0]:
-                    
-                    #If entry in auth record does not end with the domain name of main OR does not have associated record in master
-                    if ((r.split(".")[-2] + "." +  r.split(".")[-1]) not in domain):
-                        return False 
-                    
-                if (not match_master(record[0], record[1])):
-                    return False
-                
-                return True
-            
-            #If entry in auth record does not end with the domain name of main OR does not have associated record in master
-            if ((record[0].split(".")[-2] + "." +  record[0].split(".")[-1]) not in domain or not match_master(record[0], record[1])):
-                return False 
-        
-    return True
-
-
-def check_tld(domain, port: str) -> bool:
-    global tld
-    #print(f"Checking tld {domain} @ {port}")
-
-    try:
-        #Get index of file which has the port we are looking for
-        idx = [records[0][0] for records in tld].index(port)
-    except ValueError:    
-        return False #If we dont find a matching port
-    
-    for record in tld[idx][1:]:
-            try:
-                record[0].split(".")
-            except AttributeError:  
-                #Case where we have multiple domains to one port
-                for r in record[0]:
-                    #If entry in tld file does not end with the domain name of auth OR if it does not have associated auth file
-                    if ((r.split(".")[-1]) not in domain):
-                        return False 
-                
-                if (not check_auth(record[0], record[1])):
-                    return False
-                
-                return True
-            
-            #If entry in tld file does not end with the domain name of auth OR if it does not have associated auth file
-            if (record[0].split(".")[-1] not in domain or not check_auth(record[0], record[1])):
-                return False 
-        
-    return True
-
-
-def check_root() -> bool:
-    global root
-
-    #Check each entry in the root file, that it has an associated tld file
-    for record in root[1:]:
-        if not check_tld(record[0], record[1]):
-            return False
-    
     return True
 
 
 def valid_configuration(master_filepath: str, directory_path: str) -> bool:
-    global master
-    global root
-    global tld
-    global auth
-
-    #Read in master config file
-    master = [x[:-1].split(",") for x in open(master_filepath).readlines()]
-
-    files = pathlib.Path(directory_path).glob('*')
-
-    #Scan through each single file in directory
-    for file in files:
-
-        #Extract contents of file
-        records = [x[:-1].split(",") for x in open(file).readlines()]
-
-        #Determine if the single file is a root, tld or auth file and load into respective variables
-        for record in records[1:]:
-            if (len(record[0].split(".")) == 1):
-                root = [records[0]] + remove_duplicates(records[1:])
-                break
-            elif (len(record[0].split(".")) == 2):
-                tld.append([records[0]] + remove_duplicates(records[1:]))
-                break
-            else:
-                auth.append([records[0]] + remove_duplicates(records[1:]))
-                break
-
-    # print(f"ROOT: {root}")
-    # print(f"TLD: {tld}")
-    # print(f"AUTH: {auth}")
-
-    #Begin validation
-    return check_root()
-
-
-def check_alnum(*strings: str) -> bool:
-    #For each string passed in, determine if any characters are not alphanumeric or -
-    for string in strings:
-        for char in string:
-            if not(char.isalnum() or char == "-"):
-                return False
-    return True
-            
-
-def check_alnum_dot(string: str) -> bool:
-    #For character
-    for i, char in enumerate(string):
-
-        #String cannot start or end with "."
-        if (i == 0 or i == len(string)-1):
-            if (char == "."):
-                return False
-        
-        #Check if alphanumeric, . or -
-        if not(char == "." or char.isalnum() or char == "-"):
-            return False
-        
-    return True
-
-
-def valid_domain(domain: str) -> bool:
-    domain_parts = domain.split(".")
-
-    #Needs to be full hostname (C.B.A)
-    if (len(domain_parts) < 3):
+    root_port, master_mapping, _ = valid_master(master_filepath)
+    if not root_port:
         return False
 
-    #Check if B and A are alpahnumeric including "-", same check for C but including "."
-    return check_alnum(domain_parts[-1], domain_parts[-2]) and check_alnum_dot(".".join(domain_parts[0:-2]))
-
-
-def valid_partial_domain(domain: str) -> bool:
-    domain_parts = domain.split(".")
-
-    #Divide domain, accounting for partial domains
-    if len(domain_parts) == 1:
-        return check_alnum(domain_parts[-1])
-    if len(domain_parts) == 2:
-        return check_alnum(domain_parts[-1], domain_parts[-2])
-    if len(domain_parts) >= 3:
-        return check_alnum(domain_parts[-1], domain_parts[-2]) and check_alnum_dot(".".join(domain_parts[0:-2]))
-
-
-def valid_port(port: int) -> bool:
-    if port < 1024 or port > 66335:
+    root_file, tld_files, auth_files = parse_single_files(directory_path)
+    if root_file is None:
         return False
-    
-    return True
 
-
-def valid_args(args: list[str]) -> bool:
-    if (len(args) != 2):
+    if not validate_root_file(root_port, root_file, master_mapping):
         return False
-    return True
 
-
-def valid_master(master_filepath: str) -> bool:
-    try:
-        #Read records in from file
-        records = [x[:-1].split(",") for x in open(master_filepath).readlines()]
-    except FileNotFoundError:
+    _, _, root_mapping = root_file
+    tld_by_root = validate_tld_files(root_mapping, master_mapping, tld_files)
+    if tld_by_root is None:
         return False
-    
-    try:
-        #Validate first port
-        if not valid_port(int(records[0][0])):
-            return False
-        
-        domains = []
-        ports = []
-        for domain, port in records[1:]:
-            #Check that each record has a valid domain and port
-            if (not valid_domain(domain) or not valid_port(int(port))):
-                return False
-            
-            #Check that for repeated domains, thier ports match
-            if domain in domains:
-                if ports[domains.index(domain)] != port:
-                    return False
-        
-            domains.append(domain)
-            ports.append(port)
 
-    except ValueError:
-        #Port is not integer
-        return False
-    
-    return True
+    return validate_auth_files(master_mapping, {
+        auth_name: port
+        for tld_mapping in tld_by_root.values()
+        for auth_name, port in tld_mapping.items()
+    }, auth_files)
 
 
-def valid_directory(directory_path: str) -> bool:
-    return pathlib.Path(directory_path).exists()
-
-
-def valid_singles(directory_path: str) -> bool:
-    files = pathlib.Path(directory_path).glob('*')
-    for file in files:
-        try:
-            #Read records in from file
-            records = [x[:-1].split(",") for x in open(file).readlines()]
-        except FileNotFoundError:
-            return False
-        
-        try:
-            #Validate first port
-            if not valid_port(int(records[0][0])):
-                return False
-            
-            domains = []
-            ports = []
-            for domain, port in records[1:]:
-                #Check that each record has a valid domain and port
-                if (not valid_partial_domain(domain) or not valid_port(int(port))):
-                    return False
-                
-                #Check that for repeated domains, thier ports match
-                if domain in domains:
-                    if ports[domains.index(domain)] != port:
-                        return False
-            
-                domains.append(domain)
-                ports.append(port)
-
-        except ValueError:
-            #Port is not integer
-            return False
-        
-    return True
+def validate_arguments(args: list[str]) -> bool:
+    return len(args) == 2
 
 
 def main(args: list[str]) -> None:
-    #Validate arguments, master file, single files and that directory exists
-    if not valid_args(args):
-        print("invalid arguments")
-        return
-    
-    if not valid_master(args[0]):
-        print("invalid master")
-        return
-    
-    if not valid_directory(args[1]):
-        print("singles io error")
+    if not validate_arguments(args):
+        print('INVALID ARGUMENTS')
         return
 
-    if not valid_singles(args[1]):
-        print("invalid single")
+    master_file = args[0]
+    singles_directory = args[1]
+
+    root_port, _, _ = valid_master(master_file)
+    if not root_port:
+        print('INVALID MASTER')
         return
-    
-    #Check if configuration is valid
-    if valid_configuration(args[0], args[1]):
-        print("eq")
-    else:
-        print("neq")
-    
-    return
+
+    if not valid_directory(singles_directory):
+        print('NON-WRITABLE SINGLE DIR')
+        return
+
+    if not valid_configuration(master_file, singles_directory):
+        print('neq')
+        return
+
+    print('eq')
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main(argv[1:])
