@@ -1,7 +1,7 @@
 ## Project Overview
 
 nxdomain is a project designed to simulate a DNS infrastructure, containing the following components:
-- [recursor.py](recursor.py): A recursive resolver which queries servers to map a hostname to a port, which are cached for future lookups.
+- [recursor.py](recursor.py): A recursive resolver which queries servers to map a hostname to a port, which are cached for future lookups. See [Benchmarking](#benchmarking) for caching performance analysis.
 - [server.py](server.py): Accepts socket connections to process queries. Stores a list of DNS records mapping full or partial hostnames to ports.
 - [launcher.py](launcher.py): Splits a master DNS record into sub-records used by root, TLD and authoritative DNS servers. Has the capacity to scale up root, TLD and authoritative [server.py](server.py) programs to fulfil DNS queries required by the master record.
 
@@ -26,7 +26,47 @@ If at any stage of the above process a port is unable to be resolved, the server
 
 As many hostnames can be entered as required before exiting, which is done by entering `CTRL-C` or `CTRL-D`.
 
-Once a hostname has been resolved, it is cached to improve future lookup speeds and reduce network traffic. Each hostname record comes with a time-to-live (TTL) to ensure that cached records are kept fresh. In this implementation, the caching expiry is maintained using multithreading.
+Once a hostname has been resolved, it is cached to improve future lookup speeds and reduce network traffic. Each hostname record comes with a time-to-live (TTL) to ensure that cached records are kept fresh. In this implementation, the cache is implemented using a dictionary/HashMap, and record expiry is maintained using multithreading.
+
+
+### Benchmarking
+
+Running the benchmarking script can be done using:
+
+```
+python3 benchmarking/driver.py <ttl>
+```
+
+where `<ttl>` is the time-to-live for a given cache record (defaults to `5.0`).
+
+This compares the performance of the recursor when caching DNS lookups vs not caching DNS lookups for a variety of query amounts. It will generate both a text summary for each query quantity, as well as a graphical summary demonstrating the asymptotic behaviour of both cases. For example:
+
+```
+============================================================
+  BENCHMARK SUMMARY
+============================================================
+  Total queries per phase : 14
+  Without caching         : 0.0650s  (4.64 ms/query)
+  With caching            : 0.0578s  (4.13 ms/query)
+  Speedup                 : 1.12x faster with cache
+  Time saved              : 0.0072s
+============================================================
+
+  Total queries per phase : 140
+  Without caching         : 0.0790s  (0.56 ms/query)
+  With caching            : 0.0683s  (0.49 ms/query)
+  Speedup                 : 1.16x faster with cache
+  Time saved              : 0.0107s
+                        ...
+```
+
+![benchmarking.png](benchmarking/benchmark.png)
+
+Caching performs marginally worse on smaller query sizes due to the overhead associated with the dictionary data structure, but maintains O(1) lookups for query sizes larger (constant asymptotic behaviour).
+
+Not using the cache has O(n) lookups, that is, a linear asymptotic behaviour.  However, this has the benefit of dodging the O(n) space bounds required for the cache.
+
+For 1400 queries, using the cache performs `5x` faster compared to not using the cache. This behaviour is expected to continue asymptotically, with the potential for issues relating to record expiry if a worse-case order is used (all records expire before lookup is repeated).
 
 
 ## DNS server
@@ -124,7 +164,6 @@ partial-hostname,port
 ...
 ```
 where partial-hostname is a subset of a valid hostname (i.e in format A, B.A, C.B.A).
-
 
 ## Limitations
 

@@ -2,7 +2,7 @@
 DNS Benchmarking Driver
 Compares cached vs non-cached resolution performance.
 
-Usage: python3 driver.py [master_file] [singles_dir] [cache_ttl]
+Usage: python3 driver.py [cache_ttl]
 """
 
 import subprocess
@@ -147,15 +147,15 @@ def execute(repeat):
 
 def generate_graph(data):
 
-    x = [a[0] for a in data]
-    y1 = [a[1] for a in data]
-    y2 = [a[2] for a in data]
+    n_queries = [a[0] for a in data]
+    non_cache_t = [a[1] for a in data]
+    cache_t = [a[2] for a in data]
 
-    plt.plot(x, y1, label='no cache')
-    plt.plot(x, y2, label='cache')
+    plt.plot(n_queries, non_cache_t, label='no cache')
+    plt.plot(n_queries, cache_t, label='cache')
 
     plt.xlabel("Number of queries")
-    plt.ylabel("Time (seconds)")
+    plt.ylabel("Total time (seconds)")
     plt.title("Caching DNS records is faster")
     plt.legend()
     plt.grid(True)
