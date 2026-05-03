@@ -37,9 +37,10 @@ Running the benchmarking script can be done using:
 python3 benchmarking/driver.py <ttl>
 ```
 
-where `<ttl>` is the time-to-live for a given cache record (defaults to `5.0`).
+where `<ttl>` is the time-to-live for cache records (default: `5.0s`).
 
-This compares the performance of the recursor when caching DNS lookups vs not caching DNS lookups for a variety of query amounts. It will generate both a text summary for each query quantity, as well as a graphical summary demonstrating the asymptotic behaviour of both cases. For example:
+The script compares caching vs. non-caching performance across several query 
+volumes, outputting a text summary and a plot of asymptotic behaviour. For example:
 
 ```
 ============================================================
@@ -62,11 +63,13 @@ This compares the performance of the recursor when caching DNS lookups vs not ca
 
 ![benchmarking.png](benchmarking/benchmark.png)
 
-Caching performs marginally worse on smaller query sizes due to the overhead associated with the dictionary data structure, but maintains O(1) lookups for query sizes larger (constant asymptotic behaviour).
+**Without caching** — O(n) time, O(1) space. Every query required a new connection to DNS servers, so total resolution time grows linearly with query volume.
 
-Not using the cache has O(n) lookups, that is, a linear asymptotic behaviour.  However, this has the benefit of dodging the O(n) space bounds required for the cache.
+**With caching** — O(1) time for repeated lookups, O(n) space. Repeated lookups do not require new connections, keeping per-query latency flat regardless of query volume. At 1,400 queries this is `~5x` faster, and the gap widens asymptotically.
 
-For 1400 queries, using the cache performs `5x` faster compared to not using the cache. This behaviour is expected to continue asymptotically, with the potential for issues relating to record expiry if a worse-case order is used (all records expire before lookup is repeated).
+The cache incurs negligible overhead at small query volumes due to dictionary operations, but this is negligible beyond a few queries.
+
+The above behaviour is expected to continue asymptotically. Howeber, if a worst-case lookup order is used, such as if all cached records expire before repeat, the cache provides no benefit to lookup speeds and requires extra space.
 
 
 ## DNS server
