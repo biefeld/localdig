@@ -31,8 +31,21 @@ from cache import Cache
 
 # ── paths ──────────────────────────────────────────────────────────────────────
 ROOT_DIR = Path(__file__).parent.parent   # repo root
-SINGLES_DIR = ROOT_DIR / "singles"
-MASTER_CONF = ROOT_DIR / "master.conf"
+RENDER_SECRETS_DIR = Path("/etc/secrets")
+
+# Check if running on Render, otherwise fall back to local repository root
+if RENDER_SECRETS_DIR.exists():
+    MASTER_CONF = RENDER_SECRETS_DIR / "master.conf"
+    # If singles_dir is also uploaded via Render UI, point to it there:
+    SINGLES_DIR = RENDER_SECRETS_DIR / "singles" 
+else:
+    # Local development paths
+    MASTER_CONF = ROOT_DIR / "master.conf"
+    SINGLES_DIR = ROOT_DIR / "singles"
+
+# Auto-create the directory if it does not exist
+SINGLES_DIR.mkdir(parents=True, exist_ok=True)
+
 
 # ── state ──────────────────────────────────────────────────────────────────────
 launcher_process: Optional[asyncio.subprocess.Process] = None
