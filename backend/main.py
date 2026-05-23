@@ -33,17 +33,17 @@ from cache import Cache
 ROOT_DIR = Path(__file__).parent.parent   # repo root
 RENDER_SECRETS_DIR = Path("/etc/secrets")
 
-# Check if running on Render, otherwise fall back to local repository root
+# 1. Handle the Read-Only Master Config
 if RENDER_SECRETS_DIR.exists():
     MASTER_CONF = RENDER_SECRETS_DIR / "master.conf"
-    # If singles_dir is also uploaded via Render UI, point to it there:
-    SINGLES_DIR = RENDER_SECRETS_DIR / "singles" 
 else:
-    # Local development paths
     MASTER_CONF = ROOT_DIR / "master.conf"
-    SINGLES_DIR = ROOT_DIR / "singles"
 
-# Auto-create the directory if it does not exist
+# 2. Handle the Writeable Singles Directory 
+# Force this to live in the app root so Python can safely create/write to it
+SINGLES_DIR = ROOT_DIR / "singles"
+
+# 3. Safely auto-create the directory at startup
 SINGLES_DIR.mkdir(parents=True, exist_ok=True)
 
 
