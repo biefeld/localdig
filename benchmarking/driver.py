@@ -60,7 +60,7 @@ def stop_servers(proc, label):
 
 
 def run_phase(label, cmd, hostnames, root_port, repeat):
-    """Feed hostnames×repeats into the recursor and return elapsed time."""
+    """Feed hostnames repeats into the recursor and return elapsed time."""
     # print(f"\n{'='*60}")
     # print(f"  PHASE: {label}")
     # print(f"  Command: {' '.join(cmd)}")
@@ -159,8 +159,6 @@ def generate_graph(data):
     plt.title("Caching DNS records is faster")
     plt.legend()
     plt.grid(True)
-
-    plt.show()
 
 
 def main():
