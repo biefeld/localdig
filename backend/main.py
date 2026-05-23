@@ -62,7 +62,7 @@ app = FastAPI(title="nxdomain GUI", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000"],
+    allow_origins=["http://localhost:5173", "http://localhost:3000", "https://nxdomain.pages.dev/"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
