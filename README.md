@@ -172,11 +172,11 @@ where partial-hostname is a subset of a valid hostname (i.e in format A, B.A, C.
 
 The following is a list of simplifications made compared to real-world DNS systems. A number of these concepts could be implemented to extend this tools functionality.
 
-* The changes made to server records during runtime are not persisted.
+* ~~The changes made to server records during runtime are not persisted.~~
 * Only one type of DNS record is allowed (equivalent of IPv4 records). CNAME for aliases MX for emails and AAAA for IPv6 are some common ones which could be included.
 * ~~Caching of DNS resolutions is not utilized to improve lookup speeds. If implemented, it must include a time-to-live to ensure all cached records are kept fresh.~~
 * Once a lookup has failed (NXDOMAIN received), the resolver does not attempt to find other servers which may have the necessary records.
-* Servers are single-threaded, meaning that only one connection can be held, reducing the efficiency of lookups.
+* ~~Servers are single-threaded, meaning that only one connection can be held, reducing the efficiency of lookups.~~
 * No server redundancy is present. If one server fails some or all lookups will not be able to be resolved.
 * The request and responses are sent via plaintext over the socket connections, and no extra security measures are in place to prevent spoofing, poisoning.
 * Ports are used instead of IP addresses to remove the need for multiple physical machines, extra networking overhead or cloud infrastructure.

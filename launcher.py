@@ -39,7 +39,7 @@ def generate_config_files(root_port: int, mapping: dict, taken_ports: set, direc
                 tld_file.write(f"{new_port}\n")
 
                 for auth in auth_nameservers:
-                    if tld not in auth.split('.')[-1]:
+                    if auth.split('.')[-1] != tld:
                         continue
 
                     new_port = get_valid_port(taken_ports)
