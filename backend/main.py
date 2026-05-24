@@ -18,6 +18,9 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Optional
 
+import core.launcher as _launcher
+import benchmarking.driver as _driver
+
 import datetime
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
@@ -27,7 +30,7 @@ from pydantic import BaseModel
 # import cache from repo root
 import sys as _sys
 _sys.path.insert(0, str(Path(__file__).parent.parent))
-from dns_core.cache import Cache
+from core.cache import Cache
 
 # ── paths ──────────────────────────────────────────────────────────────────────
 ROOT_DIR = Path(__file__).parent.parent   # repo root
@@ -149,7 +152,7 @@ async def launch_infrastructure(req: LaunchRequest):
     singles_path.mkdir(parents=True, exist_ok=True)
 
     launcher_process = await asyncio.create_subprocess_exec(
-        sys.executable, str(ROOT_DIR / "dns_core" / "launcher.py"), str(master_path), str(singles_path),
+        sys.executable, _launcher.__file__, str(master_path), str(singles_path),
         stdin=asyncio.subprocess.PIPE,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
@@ -329,7 +332,7 @@ async def run_benchmark(req: BenchmarkRequest):
         raise HTTPException(400, f"master.conf not found: {master_path}")
 
     proc = await asyncio.create_subprocess_exec(
-        sys.executable, str(ROOT_DIR / "benchmarking" / "driver.py"), str(master_path),
+        sys.executable, _driver.__file__, str(master_path),
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
         cwd=str(ROOT_DIR),

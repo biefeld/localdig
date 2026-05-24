@@ -13,4 +13,4 @@ dependencies = [
 ]
 
 [tool.setuptools]
-packages = ["backend", "benchmarking", "dns_core"]
+packages = ["backend", "benchmarking", "core"]

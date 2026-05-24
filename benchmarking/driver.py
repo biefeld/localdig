@@ -12,6 +12,8 @@ import time
 import os
 import matplotlib.pyplot as plt
 from pathlib import Path
+import core.launcher as _launcher
+import core.recursor as _recursor
 
 
 ROOT_DIR = Path(__file__).parent.parent
@@ -47,7 +49,7 @@ def validate_connection(root_port):
 def launch_servers(root_port):
     """Start launcher.py and wait for servers to be ready."""
     proc = subprocess.Popen(
-        ["python3", str(ROOT_DIR / "dns_core" / "launcher.py"), MASTER_FILE, SINGLES_DIR],
+        ["python3", _launcher.__file__, MASTER_FILE, SINGLES_DIR],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )
@@ -124,7 +126,7 @@ def execute(repeat):
     # Without caching
     launcher = launch_servers(root_port)
     no_cache_cmd = [
-        "python3", str(ROOT_DIR / "dns_core" / "recursor.py"),
+        "python3", _recursor.__file__,
         str(root_port), str(TIMEOUT), "True"
     ]
     no_cache_time = run_phase("WITHOUT CACHING", no_cache_cmd, hostnames, root_port, repeat)
@@ -135,7 +137,7 @@ def execute(repeat):
     # With caching
     launcher = launch_servers(root_port)
     cached_cmd = [
-        "python3",  str(ROOT_DIR / "dns_core" / "recursor.py"),
+        "python3",  _recursor.__file__,
         str(root_port), str(TIMEOUT), "False"
     ]
     cached_time = run_phase("WITH CACHING", cached_cmd, hostnames, root_port, repeat)

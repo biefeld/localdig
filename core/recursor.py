@@ -1,7 +1,7 @@
 from sys import argv, exit
 import socket
-from dns_core.utils import *
-from dns_core.cache import Cache
+from core.utils import *
+from core.cache import Cache
 import datetime as dt
 import threading as th
 

@@ -4,9 +4,8 @@ from os import scandir
 from pathlib import Path
 import json
 
-from dns_core.utils import *
-
-
+from core.utils import *
+import core.server as _server
 
 
 ROOT_DIR = Path(__file__).parent.parent
@@ -15,7 +14,7 @@ ROOT_DIR = Path(__file__).parent.parent
 def scale_infrastructure(singles_directory: list[str]) -> None:
     files = scandir(singles_directory)
 
-    servers = [Popen(["python3", str(ROOT_DIR / "dns_core" / "server.py"), file]) for file in files]
+    servers = [Popen(["python3", _server.__file__, file]) for file in files]
     try:
         for server in servers:
             server.wait()
@@ -89,11 +88,11 @@ def validate_arguments(args: list[str]) -> bool:
 def main(args: list[str]) -> None:
     #Validate arguments, master file and that the directory exists
     if not validate_arguments(args):
-        print("INVALID ARGUMENTS")
+        print("INVALID ARGUMENTS\nexample usage: python3 dns_core/launcher.py db/master.conf db/singles")
         return
 
-    master_file = args[0]
-    singles_directory = args[1]
+    master_file = Path(ROOT_DIR / args[0])
+    singles_directory = Path(ROOT_DIR / args[1])
 
     root_port, mapping, taken_ports = valid_master(master_file)
 
@@ -102,8 +101,10 @@ def main(args: list[str]) -> None:
         return
 
     if not valid_directory(singles_directory):
-        print("NON-WRITABLE SINGLE DIR")
-        return
+        try: singles_directory.mkdir(parents=True, exist_ok=True)
+        except Exception as e:
+            print ("NON-WRITABLE SINGLE DIR")
+            return
     
     generate_config_files(root_port, mapping, taken_ports, singles_directory)
 

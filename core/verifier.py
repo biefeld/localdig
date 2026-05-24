@@ -1,5 +1,5 @@
 from sys import argv
-from dns_core.utils import valid_master, valid_single, valid_directory
+from core.utils import valid_master, valid_single, valid_directory
 import pathlib
 
 def get_root_label(hostname: str) -> str:

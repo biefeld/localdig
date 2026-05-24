@@ -14,8 +14,8 @@ coverage.xml
 htmlcov/
 .pytest_cache/
 tests
-*.conf
 *.egg-info
+db/singles/
 
 # Coverage report
 coverage_report/
