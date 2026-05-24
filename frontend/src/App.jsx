@@ -1,6 +1,10 @@
 import { useState, useEffect } from 'react'
 import { apiUrl } from './api.js'
 import DemoModal from './components/DemoModal.jsx'
+import BenchmarkTab from './components/BenchmarkTab.jsx'
+import StressTab from './components/StressTab.jsx'
+
+
 import { DEMO_SERVERS } from './demo.js'
 import Dashboard from './views/Dashboard.jsx'
 import Lookup from './views/Lookup.jsx'
