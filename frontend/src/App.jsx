@@ -26,25 +26,32 @@ export default function App() {
   const [targetServer, setTargetServer] = useState(null)
 
   useEffect(() => {
-    const check = async () => {
+    let initialCheckDone = false
+
+    const check = async (isInitial = false) => {
       try {
         const r = await fetch(apiUrl('/api/infrastructure/status'))
         const d = await r.json()
         setInfra(d)
+        initialCheckDone = true
       } catch (_) {
-        // backend unreachable — enter demo mode
-        setDemoMode(true)
-        setShowModal(true)
-        setInfra({ running: true, servers: DEMO_SERVERS, root_port: 1025 })
-        window.__demoMode = true
+        // only enter demo mode if the very first check fails
+        // subsequent failures (e.g. during long benchmark run) are ignored
+        if (isInitial && !initialCheckDone) {
+          setDemoMode(true)
+          setShowModal(true)
+          setInfra({ running: true, servers: DEMO_SERVERS, root_port: 1025 })
+          window.__demoMode = true
+        }
       }
     }
-    check()
+
+    check(true)
     const id = setInterval(() => {
-      if (!demoMode) check()
+      if (!window.__demoMode) check(false)
     }, 3000)
     return () => clearInterval(id)
-  }, [demoMode])
+  }, [])
 
 
   const groups = ['monitor', 'manage', 'tools']

@@ -2,13 +2,13 @@ import { useEffect } from 'react'
 import { apiUrl } from '../api.js'
 
 export default function Servers({ infra, setInfra, onLookup, targetServer, clearTargetServer }) {
-  // refresh on mount so port lookups are always current
   useEffect(() => {
     fetch(apiUrl('/api/infrastructure/status'))
       .then(r => r.json())
       .then(d => { if (d.running) setInfra(d) })
       .catch(() => {})
   }, [])
+
   useEffect(() => {
     if (!targetServer) return
     const el = document.getElementById(`server-${targetServer}`)
@@ -20,6 +20,7 @@ export default function Servers({ infra, setInfra, onLookup, targetServer, clear
     }
     clearTargetServer?.()
   }, [targetServer])
+
   if (!infra.running) {
     return (
       <div style={{ maxWidth: 700 }}>
@@ -32,9 +33,7 @@ export default function Servers({ infra, setInfra, onLookup, targetServer, clear
   }
 
   const byKind = { root: [], tld: [], auth: [] }
-  infra.servers.forEach(s => {
-    if (byKind[s.kind]) byKind[s.kind].push(s)
-  })
+  infra.servers.forEach(s => { if (byKind[s.kind]) byKind[s.kind].push(s) })
 
   return (
     <div style={{ maxWidth: 860 }}>
@@ -97,26 +96,26 @@ export default function Servers({ infra, setInfra, onLookup, targetServer, clear
                       }
                     }
                     return (
-                    <div key={j} onClick={clickable ? handleClick : undefined}
-                      style={{
-                        display: 'flex', justifyContent: 'space-between',
-                        padding: '3px 0',
-                        borderBottom: j < s.records.length - 1 ? '1px solid var(--border)' : 'none',
-                        cursor: clickable ? 'pointer' : 'default',
-                        transition: 'background 0.1s',
-                      }}
-                      onMouseEnter={e => { if (clickable) e.currentTarget.style.background = 'var(--bg-hover)' }}
-                      onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
-                    >
-                      <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: clickable ? 'var(--text)' : 'var(--text-dim)' }}>
-                        {r.hostname}
-                      </span>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--green)' }}>:{r.port}</span>
-                        {isAuth && <span style={{ fontSize: 10, color: 'var(--text-hint)' }}>resolve →</span>}
-                        {isNavToServer && targetName && <span style={{ fontSize: 10, color: 'var(--text-hint)' }}>view →</span>}
+                      <div key={j} onClick={clickable ? handleClick : undefined}
+                        style={{
+                          display: 'flex', justifyContent: 'space-between',
+                          padding: '3px 0',
+                          borderBottom: j < s.records.length - 1 ? '1px solid var(--border)' : 'none',
+                          cursor: clickable ? 'pointer' : 'default',
+                          transition: 'background 0.1s',
+                        }}
+                        onMouseEnter={e => { if (clickable) e.currentTarget.style.background = 'var(--bg-hover)' }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+                      >
+                        <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: clickable ? 'var(--text)' : 'var(--text-dim)' }}>
+                          {r.hostname}
+                        </span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--green)' }}>:{r.port}</span>
+                          {isAuth && <span style={{ fontSize: 10, color: 'var(--text-hint)' }}>resolve →</span>}
+                          {isNavToServer && targetName && <span style={{ fontSize: 10, color: 'var(--text-hint)' }}>view →</span>}
+                        </div>
                       </div>
-                    </div>
                     )
                   })}
                 </div>
