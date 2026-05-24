@@ -1,7 +1,7 @@
 from sys import argv, exit
 import socket
 import threading
-from utils import *
+from dns_core.utils import *
 
 
 def save_records(conf_path: str, server_port: int, mapping: dict) -> None:

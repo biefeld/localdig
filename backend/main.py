@@ -27,21 +27,14 @@ from pydantic import BaseModel
 # import cache from repo root
 import sys as _sys
 _sys.path.insert(0, str(Path(__file__).parent.parent))
-from cache import Cache
+from dns_core.cache import Cache
 
 # ── paths ──────────────────────────────────────────────────────────────────────
 ROOT_DIR = Path(__file__).parent.parent   # repo root
-RENDER_SECRETS_DIR = Path("/etc/secrets")
 
-# 1. Handle the Read-Only Master Config
-if RENDER_SECRETS_DIR.exists():
-    MASTER_CONF = RENDER_SECRETS_DIR / "master.conf"
-else:
-    MASTER_CONF = ROOT_DIR / "master.conf"
-
-# 2. Handle the Writeable Singles Directory 
-# Force this to live in the app root so Python can safely create/write to it
-SINGLES_DIR = ROOT_DIR / "singles"
+# TODO - Dont hard code
+MASTER_CONF = ROOT_DIR / "db" / "master.conf"
+SINGLES_DIR = ROOT_DIR / "db" / "singles"
 
 # 3. Safely auto-create the directory at startup
 SINGLES_DIR.mkdir(parents=True, exist_ok=True)
@@ -156,7 +149,7 @@ async def launch_infrastructure(req: LaunchRequest):
     singles_path.mkdir(parents=True, exist_ok=True)
 
     launcher_process = await asyncio.create_subprocess_exec(
-        sys.executable, str(ROOT_DIR / "launcher.py"), str(master_path), str(singles_path),
+        sys.executable, str(ROOT_DIR / "dns_core" / "launcher.py"), str(master_path), str(singles_path),
         stdin=asyncio.subprocess.PIPE,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,

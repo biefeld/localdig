@@ -15,6 +15,7 @@ htmlcov/
 .pytest_cache/
 tests
 *.conf
+*.egg-info
 
 # Coverage report
 coverage_report/

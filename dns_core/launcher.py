@@ -1,13 +1,20 @@
 from sys import argv, exit
-from utils import *
 from subprocess import Popen
 from os import scandir
+from pathlib import Path
+
+from dns_core.utils import *
+
+
+
+
+ROOT_DIR = Path(__file__).parent.parent
 
 
 def scale_infrastructure(singles_directory: list[str]) -> None:
     files = scandir(singles_directory)
 
-    servers = [Popen(["python3","server.py", file]) for file in files]
+    servers = [Popen(["python3", str(ROOT_DIR / "dns_core" / "server.py"), file]) for file in files]
     try:
         for server in servers:
             server.wait()

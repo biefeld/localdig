@@ -11,6 +11,10 @@ import sys
 import time
 import os
 import matplotlib.pyplot as plt
+from pathlib import Path
+
+
+ROOT_DIR = Path(__file__).parent.parent
 
 MASTER_FILE  = sys.argv[1] if len(sys.argv) > 1 else "master.conf"
 SINGLES_DIR  = sys.argv[2] if len(sys.argv) > 2 else "singles"
@@ -44,7 +48,7 @@ def validate_connection(root_port):
 def launch_servers(root_port):
     """Start launcher.py and wait for servers to be ready."""
     proc = subprocess.Popen(
-        ["python3", "launcher.py", MASTER_FILE, SINGLES_DIR],
+        ["python3", str(ROOT_DIR / "dns_core" / "launcher.py"), MASTER_FILE, SINGLES_DIR],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )

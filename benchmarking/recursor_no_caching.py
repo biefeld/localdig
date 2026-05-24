@@ -1,6 +1,6 @@
 from sys import argv, exit
 import socket
-from utils import *
+from dns_core.utils import *
 
 def resolve_hostname(root_port: int, root_query: str, tld_query: str, auth_query: str,):
     

@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nxdomain"
+version = "0.1.0"
+description = "nxdomain"
+dependencies = [
+    "fastapi>=0.111.0",
+    "uvicorn[standard]>=0.29.0",
+    "websockets>=12.0"
+]
+
+[tool.setuptools]
+packages = ["backend", "benchmarking", "dns_core"]
