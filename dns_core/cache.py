@@ -9,7 +9,7 @@ class Record:
         self.expiry = expiry
 
     def __str__(self):
-        return f"{self.port} (expires {self.expiry.strftime('%d/%m/%y %H:%M:%S')})"
+        return f"{self.port} · expires {self.expiry.strftime('%d/%m/%y %H:%M:%S')}"
 
     def is_expired(self) -> bool:
         return self.expiry < dt.datetime.now()

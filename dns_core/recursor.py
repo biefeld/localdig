@@ -7,8 +7,6 @@ import threading as th
 
 
 def resolve_hostname(root_port: int, root_query: str, tld_query: str, auth_query: str, cache: Cache, bypass_cache: bool):
-        print(bypass_cache)
-
         if not bypass_cache:
             cache_record = cache.resolve(auth_query)
             if cache_record:

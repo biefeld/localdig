@@ -2,6 +2,7 @@ from sys import argv, exit
 from subprocess import Popen
 from os import scandir
 from pathlib import Path
+import json
 
 from dns_core.utils import *
 
@@ -21,47 +22,65 @@ def scale_infrastructure(singles_directory: list[str]) -> None:
     except (KeyboardInterrupt, EOFError):
         exit()
 
-def generate_config_files(root_port: int, mapping: dict, taken_ports: set, directory_path: str) -> None:
-
-    tld_nameservers = set()
-    auth_nameservers = set()
-    hostnames = set()
-
+def expand_mapping(mapping: dict) -> dict:
+    """
+    Converts
+        www.linear.app 17001
+        api.linear.app 17002
+    to
+        {
+            "app": {
+                "linear.app": [
+                    [
+                        "www.linear.app",
+                        17001
+                    ],
+                    [
+                        "api.linear.app",
+                        17002
+                    ]
+                ]
+            },
+            ...
+        }
+    in O(n) time
+    """
+    expanded = {}
     for hostname, port in mapping.items():
         tld, auth, _ = split_hostname(hostname)
         
-        tld_nameservers.add(tld)
-        auth_nameservers.add(auth)
-        hostnames.add(hostname)
+        # Initialize nested structures if they do not exist
+        auth_dict = expanded.setdefault(tld, {})
+        host_list = auth_dict.setdefault(auth, [])
+        
+        host_list.append((hostname, port))
 
-    # Needs cleaning up further -> inefficeint due to repeated loops
+    return expanded
+
+
+def generate_config_files(root_port: int, mapping: dict, taken_ports: set, directory_path: str) -> None:
+    hierarchy = expand_mapping(mapping)
+    
+    # No longer O(n^3), just do one pass over each record/subrecord in dict
     with open(f"{directory_path}/root.conf", "w") as root_file:
         root_file.write(f"{root_port}\n")
 
-        for tld in tld_nameservers:
-            new_port = get_valid_port(taken_ports)
-            root_file.write(f"{tld},{new_port}\n")
+        for tld, auth_dict in hierarchy.items():
+            tld_port = get_valid_port(taken_ports)
+            root_file.write(f"{tld},{tld_port}\n")
 
             with open(f"{directory_path}/tld-{tld}.conf", "w") as tld_file:
-                tld_file.write(f"{new_port}\n")
+                tld_file.write(f"{tld_port}\n")
 
-                for auth in auth_nameservers:
-                    if auth.split('.')[-1] != tld:
-                        continue
-
-                    new_port = get_valid_port(taken_ports)
-                    tld_file.write(f"{auth},{new_port}\n")
+                for auth, host_list in auth_dict.items():
+                    auth_port = get_valid_port(taken_ports)
+                    tld_file.write(f"{auth},{auth_port}\n")
 
                     with open(f"{directory_path}/auth-{auth}.conf", "w") as auth_file:
-                        auth_file.write(f"{new_port}\n")
-
-                        for hostname, port in mapping.items():
-                            if auth not in ".".join(hostname.split(".")[-2:]):
-                                continue
-
+                        auth_file.write(f"{auth_port}\n")
+                        
+                        for hostname, port in host_list:
                             auth_file.write(f"{hostname},{port}\n")
-
-    return
 
 
 def validate_arguments(args: list[str]) -> bool:
