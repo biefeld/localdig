@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { apiUrl, wsUrl } from '../api.js'
+import { demoResolve, DEMO_CACHE } from '../demo.js'
 
 const STEP_META = {
   root:      { tag: 'root',  label: 'root server',          color: '#a78bfa' },
@@ -18,6 +19,15 @@ function CachePanel({ onSelect, refreshTick }) {
   const [ttl, setTtl] = useState(30)
 
   const fetchEntries = () => {
+    if (window.__demoMode) {
+      const entries = Object.entries(DEMO_CACHE).map(([hostname, v]) => ({
+        hostname, port: v.port,
+        remaining_s: Math.max(0, (v.expires - Date.now()) / 1000),
+      }))
+      setEntries(entries)
+      setTtl(30)
+      return
+    }
     fetch(apiUrl('/api/cache/entries'))
       .then(r => r.json())
       .then(d => { setEntries(d.entries || []); setTtl(d.ttl || 30) })
@@ -115,7 +125,7 @@ function CachePanel({ onSelect, refreshTick }) {
   )
 }
 
-export default function Lookup({ infra, history, setHistory, initialHostname, clearInitialHostname }) {
+export default function Lookup({ infra, history, setHistory, initialHostname, clearInitialHostname, demoMode }) {
   const [hostname, setHostname] = useState('')
   const [steps, setSteps] = useState([])
   const [resolving, setResolving] = useState(false)
@@ -125,44 +135,70 @@ export default function Lookup({ infra, history, setHistory, initialHostname, cl
 
   // keep pendingRef in sync with initialHostname
   useEffect(() => {
-    if (initialHostname) pendingRef.current = initialHostname
+    if (!initialHostname) return
+    pendingRef.current = initialHostname
+    if (demoMode) {
+      const h = initialHostname
+      setHostname(h)
+      setSteps([])
+      setResolving(true)
+      setTimeout(() => demoResolve(h, handleMsg), 50)
+      clearInitialHostname?.()
+      pendingRef.current = null
+    }
   }, [initialHostname])
+
+  const handleMsgRef = useRef(null)
+  handleMsgRef.current = (msg) => {
+    setSteps(prev => [...prev, { ...msg, ts: Date.now() }])
+    if (msg.step === 'resolved' || msg.step === 'cache_hit' || msg.step === 'nxdomain' || msg.step === 'error') {
+      setResolving(false)
+      if (msg.step === 'resolved' || msg.step === 'cache_hit') {
+        setCacheRefreshTick(t => t + 1)
+        const ms = msg.step === 'cache_hit' ? null : msg.total_ms
+        setHistory(h => [{ hostname: msg.hostname, port: msg.port, ms, cached: msg.step === 'cache_hit', ts: Date.now() }, ...h.filter(e => e.hostname !== msg.hostname).slice(0, 18)])
+      }
+    }
+  }
+
+  const handleMsg = (msg) => handleMsgRef.current(msg)
 
   const fireResolve = (ws, h) => {
     setHostname(h)
     setSteps([])
     setResolving(true)
-    ws.send(JSON.stringify({ hostname: h }))
+    if (demoMode) {
+      demoResolve(h, handleMsg)
+    } else {
+      ws.send(JSON.stringify({ hostname: h }))
+    }
     clearInitialHostname?.()
     pendingRef.current = null
   }
 
   useEffect(() => {
+    if (demoMode) return
     const ws = new WebSocket(wsUrl('/ws/lookup'))
     ws.onopen = () => {
       if (pendingRef.current) fireResolve(ws, pendingRef.current)
     }
     ws.onmessage = (e) => {
       const msg = JSON.parse(e.data)
-      setSteps(prev => [...prev, { ...msg, ts: Date.now() }])
-      if (msg.step === 'resolved' || msg.step === 'cache_hit' || msg.step === 'nxdomain' || msg.step === 'error') {
-        setResolving(false)
-        if (msg.step === 'resolved' || msg.step === 'cache_hit') {
-          setCacheRefreshTick(t => t + 1)
-          const ms = msg.step === 'cache_hit' ? null : msg.total_ms
-          setHistory(h => [{ hostname: msg.hostname, port: msg.port, ms, cached: msg.step === 'cache_hit', ts: Date.now() }, ...h.filter(e => e.hostname !== msg.hostname).slice(0, 18)])
-        }
-      }
+      handleMsg(msg)
     }
     wsRef.current = ws
     return () => ws.close()
-  }, [])
+  }, [demoMode])
 
   const resolve = () => {
     if (!hostname.trim() || resolving || !infra.running) return
     setSteps([])
     setResolving(true)
-    wsRef.current?.send(JSON.stringify({ hostname: hostname.trim() }))
+    if (demoMode) {
+      demoResolve(hostname.trim(), handleMsg)
+    } else {
+      wsRef.current?.send(JSON.stringify({ hostname: hostname.trim() }))
+    }
   }
 
   const onKey = (e) => { if (e.key === 'Enter') resolve() }

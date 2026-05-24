@@ -1,5 +1,14 @@
 import { useState } from 'react'
 import { apiUrl } from '../api.js'
+
+const DEMO_RESULTS = [
+  { queries: 14,   without_cache_ms_per: 4.64, with_cache_ms_per: 4.13, speedup: 1.12 },
+  { queries: 140,  without_cache_ms_per: 0.56, with_cache_ms_per: 0.49, speedup: 1.16 },
+  { queries: 280,  without_cache_ms_per: 0.48, with_cache_ms_per: 0.31, speedup: 1.55 },
+  { queries: 560,  without_cache_ms_per: 0.43, with_cache_ms_per: 0.22, speedup: 1.95 },
+  { queries: 1400, without_cache_ms_per: 0.41, with_cache_ms_per: 0.12, speedup: 3.42 },
+  { queries: 2800, without_cache_ms_per: 0.40, with_cache_ms_per: 0.08, speedup: 5.00 },
+]
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 
 const CustomTooltip = ({ active, payload, label }) => {
@@ -20,7 +29,7 @@ const CustomTooltip = ({ active, payload, label }) => {
   )
 }
 
-export default function Benchmark({ infra }) {
+export default function Benchmark({ infra, demoMode }) {
   const [masterConf, setMasterConf] = useState('./master.conf')
   const [running, setRunning]   = useState(false)
   const [results, setResults]   = useState(null)
@@ -30,6 +39,12 @@ export default function Benchmark({ infra }) {
     setRunning(true)
     setError(null)
     setResults(null)
+    if (demoMode) {
+      await new Promise(r => setTimeout(r, 1200))
+      setResults(DEMO_RESULTS)
+      setRunning(false)
+      return
+    }
     try {
       const r = await fetch(apiUrl('/api/benchmark/run'), {
         method: 'POST',

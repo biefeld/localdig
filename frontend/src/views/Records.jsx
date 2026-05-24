@@ -152,7 +152,7 @@ export default function Records({ infra, onLookup, onNavigateServer }) {
                 const isNavToServer = s.kind === 'root' || s.kind === 'tld'
                 const targetName = isNavToServer
                   ? (infra.servers.find(sv => sv.port === r.port)?.name
-                    ?? infra.servers.find(sv => sv.name === `auth-${r.hostname}`)?.name)
+                    ?? infra.servers.find(sv => sv.name === (s.kind === 'root' ? `tld-${r.hostname}` : `auth-${r.hostname}`))?.name)
                   : null
                 const clickable = isAuth || (isNavToServer && !!targetName)
                 const handleClick = () => {

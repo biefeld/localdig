@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { apiUrl } from '../api.js'
 
-export default function Dashboard({ infra, setInfra, setView, onNavigateServer }) {
+export default function Dashboard({ infra, setInfra, setView, onNavigateServer, demoMode }) {
   const [launching, setLaunching] = useState(false)
   const [tearing, setTearing] = useState(false)
   const [masterConf, setMasterConf] = useState('')
@@ -117,7 +117,7 @@ export default function Dashboard({ infra, setInfra, setView, onNavigateServer }
                 {launching ? <span className="spinning">↻</span> : '▶'} launch
               </button>
             ) : (
-              <button className="btn btn-red" onClick={teardown} disabled={tearing}>
+              <button className="btn btn-red" onClick={teardown} disabled={tearing || demoMode}>
                 {tearing ? <span className="spinning">↻</span> : '■'} teardown
               </button>
             )}
