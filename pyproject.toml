@@ -13,4 +13,11 @@ dependencies = [
 ]
 
 [tool.setuptools]
-packages = ["backend", "benchmarking", "core"]
+packages = [
+    "backend",
+    "backend.routes",
+    "backend.sockets",
+    "backend.services",
+    "benchmarking",
+    "core",
+]
