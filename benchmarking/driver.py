@@ -2,7 +2,7 @@
 DNS Benchmarking Driver
 Compares cached vs non-cached resolution performance.
 
-Usage: python3 driver.py [cache_ttl]
+Usage: python3 driver.py [master.conf] [/singles]
 """
 
 import subprocess
@@ -16,9 +16,8 @@ from pathlib import Path
 
 ROOT_DIR = Path(__file__).parent.parent
 
-MASTER_FILE  = sys.argv[1] if len(sys.argv) > 1 else "master.conf"
-SINGLES_DIR  = sys.argv[2] if len(sys.argv) > 2 else "singles"
-CACHE_TTL    = float(sys.argv[3]) if len(sys.argv) > 3 else 5.0
+MASTER_FILE  = sys.argv[1] if len(sys.argv) > 1 else str(ROOT_DIR / "db" / "master.conf")
+SINGLES_DIR  = sys.argv[2] if len(sys.argv) > 2 else str(ROOT_DIR / "db" / "singles")
 REPEATS      = [1, 10, 50, 100]
 TIMEOUT      = 5.0
 STARTUP_WAIT = 1.5
@@ -125,8 +124,8 @@ def execute(repeat):
     # Without caching
     launcher = launch_servers(root_port)
     no_cache_cmd = [
-        "python3", "benchmarking/recursor_no_caching.py",
-        str(root_port), str(TIMEOUT)
+        "python3", str(ROOT_DIR / "dns_core" / "recursor.py"),
+        str(root_port), str(TIMEOUT), "True"
     ]
     no_cache_time = run_phase("WITHOUT CACHING", no_cache_cmd, hostnames, root_port, repeat)
     stop_servers(launcher, "no-cache phase")
@@ -136,8 +135,8 @@ def execute(repeat):
     # With caching
     launcher = launch_servers(root_port)
     cached_cmd = [
-        "python3", "benchmarking/recursor_caching.py",
-        str(root_port), str(TIMEOUT), str(CACHE_TTL)
+        "python3",  str(ROOT_DIR / "dns_core" / "recursor.py"),
+        str(root_port), str(TIMEOUT), "False"
     ]
     cached_time = run_phase("WITH CACHING", cached_cmd, hostnames, root_port, repeat)
     stop_servers(launcher, "cached phase")
