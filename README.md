@@ -1,182 +1,89 @@
-## Project Overview
+# localdig
 
-nxdomain is a project designed to simulate a DNS infrastructure, containing the following components:
-- [recursor.py](recursor.py): A recursive resolver which queries servers to map a hostname to a port, which are cached for future lookups. See [Benchmarking](#benchmarking) for caching performance analysis.
-- [server.py](server.py): Accepts socket connections to process queries. Stores a list of DNS records mapping full or partial hostnames to ports.
-- [launcher.py](launcher.py): Splits a master DNS record into sub-records used by root, TLD and authoritative DNS servers. Has the capacity to scale up root, TLD and authoritative [server.py](server.py) programs to fulfil DNS queries required by the master record.
+A DNS infrastructure simulator built from scratch in Python (no DNS libraries, no abstractions). Raw TCP sockets, a recursive resolver, multithreaded nameservers, and a real-time web dashboard.
 
-This is intended to be a tool to investigate the functionality of DNS infrastructure, and therefore does not fully emulate what is used in a live environment. See [Limitations](#limitations) for more.
+**[Live Demo](https://localdig.pages.dev)** runs in-browser with pre-recorded data. Clone the repo to run the full stack locally.
 
-*Note: nxdomain is short for non-existent domain.*
+---
 
-## Recursive Resolver
+## Overview
 
-The [recursor.py](recursor.py) program requires the port of the root DNS server and a timeout:
+The full DNS resolution chain (root, TLD, and authoritative nameservers) is implemented over raw TCP sockets. `launcher.py` splits a master record file into per-server configs and spawns each as a `server.py` process. `recursor.py` iterates over DNS servers, caches results with a TTL, and expires stale records on a background thread.
 
-```
-python3 recursor.py root_port timeout
-```
+Servers handle concurrent connections via a thread-per-connection model, with a `threading.Lock` guarding shared record state. The cache is a TTL-keyed HashMap, repeated lookups drop from O(n) to O(1) and are benchmarked across query volumes up to 2,800.
 
-Hostnames can be input into the CLI and will be resolved to a port as follows:
-- A TCP socket connection is made to the root DNS server, and a query is sent to find the port of the TLD DNS server corresponding to the hostname.
-- Once the port is received, a connection to the TLD DNS server is made, followed by a query for the port of the authoritative DNS server corresponding to the hostname.
-- Again, the recursive resolver will connect to the authoritative DNS server and perform a final query to map the initial hostname to a port, which is printed to stdout.
+The web dashboard streams each resolution hop over WebSocket in real time, namely root query, TLD query, authoritative query or cache hit. Also includes a concurrent stress test that fires N lookups via `asyncio.gather` to show parallel vs. sequential server throughput.
 
-If at any stage of the above process a port is unable to be resolved, the server will respond with `NXDOMAIN`, ending the lookup.
+---
 
-As many hostnames can be entered as required before exiting, which is done by entering `CTRL-C` or `CTRL-D`.
+## Benchmarking
 
-Once a hostname has been resolved, it is cached to improve future lookup speeds and reduce network traffic. Each hostname record comes with a time-to-live (TTL) to ensure that cached records are kept fresh. In this implementation, the cache is implemented using a dictionary/HashMap, and record expiry is maintained using multithreading.
+| Queries | No cache (ms/q) | With cache (ms/q) | Speedup |
+|---|---|---|---|
+| 14 | 4.64 | 4.13 | 1.12x |
+| 140 | 0.56 | 0.49 | 1.16x |
+| 560 | 0.43 | 0.22 | 1.95x |
+| 1,400 | 0.41 | 0.12 | 3.42x |
+| 2,800 | 0.40 | 0.08 | 5.00x |
 
+Per-query latency flattens with caching while growing linearly without. The gap widens asymptotically.
 
-### Benchmarking
+---
 
-Running the benchmarking script can be done using:
+## Stack
 
-```
-python3 benchmarking/driver.py <ttl>
-```
+| | |
+|---|---|
+| DNS core | Python, raw TCP sockets, `threading` |
+| Backend | FastAPI, uvicorn, WebSockets, `asyncio` |
+| Frontend | React 18, Vite, Recharts |
+| Deployment | Cloudflare Pages |
 
-where `<ttl>` is the time-to-live for cache records (default: `5.0s`).
+---
 
-The script compares caching vs. non-caching performance across several query 
-volumes, outputting a text summary and a plot of asymptotic behaviour. For example:
+## Setup
 
-```
-============================================================
-  BENCHMARK SUMMARY
-============================================================
-  Total queries per phase : 14
-  Without caching         : 0.0650s  (4.64 ms/query)
-  With caching            : 0.0578s  (4.13 ms/query)
-  Speedup                 : 1.12x faster with cache
-  Time saved              : 0.0072s
-============================================================
+**Prerequisites:** Python 3.11+, Node.js 18+
 
-  Total queries per phase : 140
-  Without caching         : 0.0790s  (0.56 ms/query)
-  With caching            : 0.0683s  (0.49 ms/query)
-  Speedup                 : 1.16x faster with cache
-  Time saved              : 0.0107s
-                        ...
-```
+```bash
+# launch DNS infrastructure
+python3 core/launcher.py db/master.conf db/singles
 
-![benchmarking.png](benchmarking/benchmark.png)
+# CLI resolver
+python3 cpre/recursor.py <root_port> <timeout> [<bypass_cache>]
 
-**Without caching** — O(n) time, O(1) space. Every query required a new connection to DNS servers, so total resolution time grows linearly with query volume.
+# web dashboard - backend
+pip install -r backend/requirements.txt
+uvicorn backend.main:app --reload --port 8000
 
-**With caching** — O(1) time for repeated lookups, O(n) space. Repeated lookups do not require new connections, keeping per-query latency flat regardless of query volume. At 1,400 queries this is `~5x` faster, and the gap widens asymptotically.
-
-The cache incurs negligible overhead at small query volumes due to dictionary operations, but this is negligible beyond a few queries.
-
-The above behaviour is expected to continue asymptotically. However, if a worst-case lookup order is used, such as if all cached records expire before repeat, the cache provides no benefit to lookup speeds and requires extra space.
-
-
-## DNS server
-The [server.py](server.py) program requires the location of a valid single record file:
-
-```
-python3 server.py single_file
+# web dashboard - frontend
+cd frontend && npm install && npm run dev
 ```
 
-Note that the single file does not *need* to be configured such that the server mimics a root, TLD or authoritative DNS server. If using single files generated by the [launcher](#dns-launcher) this will be the observed behaviour.
+---
 
-The server instance will, once validating the single record file, listen for connections on the port specified in the single record file. Requests received fall into two groups:
-- full or partial hostnames which need to be resolved
-- commands to edit the records stored within the server (see [commands](#commands))
+## Web dashboard
 
-These requests do not need to be sent from [recursor.py](recursor.py) programs. For example, using ncat:
+| View | |
+|---|---|
+| Dashboard | Launch/teardown infrastructure, live server summary |
+| DNS Lookup | Animated resolution trace: root → TLD → auth, cache hits highlighted |
+| Cache | Live TTL countdown bars, per-entry expiry |
+| Servers | Running servers with clickable record navigation |
+| Records | `!ADD` / `!DEL` commands sent directly to running servers |
+| Benchmark | Cache benchmark chart + concurrent stress test with speedup visualisation |
 
-```
-echo "www.google.com" | nc localhost 1025
-```
-
-Any hostnames which are resolved, either to a port or to NXDOMAIN, will be logged to stdout.
-
-### Commands
-
-* `!ADD hostname port`: Adds a new record mapping a valid hostname to a valid port within the DNS server. Will override the port if hostname is already mapped. Ports must be unique.
-* `!DEL hostname`: Removes the record for a valid hostname.
-* `!EXIT`: Shutdown the server.
-
-The removed or added records do not persist when restarting the server, but the changes are made to the servers runtime memory.
-
-## DNS launcher
-
-The [launcher.py](launcher.py) program requires a master record file and a directory to store the generated single record files:
-
-```
-python3 launcher.py master_file directory_of_single_files
-```
-
-The launcher program will then generate single record files (used to configure one DNS server). Single records may include both hostnames and partial-hostnames, and can be used to start up a collection of simplified DNS servers. For example, the DNS launcher will split an master record file
-```
-1024
-www.google.com,8987
-```
-
-into the following single record files:
-
-* root.conf 
-```
-1024
-com,1512
-```
-* tld-com.conf
-```
-1512
-google.com,7185
-```
-* auth-google.conf
-```
-7185
-www.google.com,8987
-```
-
-Each of these files can the be fed into a single [server.py](server.py) instance, which will then act like either a root, TLD or authoritative DNS server. This is the default behaviour of the launcher, that is, to scale up a number of DNS servers to fulfil any queries required by the initial master record file.
-
-To exit the launcher program, enter `CTRL-C` or `CTRL-D`. This will also scale down any server infrastructure currently being managed by the launcher.
-
-
-## Valid inputs
-
-Ports must be in the range [1024, 65535]
-
-Hostnames must be written in the format C.B.A where:
-- A,B,C are non-empty strings containing lowercase alphanumeric characters
-- A,B,C are at most 63 characters
-- A,B,C cannot start or end with a hyphen, but can contain hyphens
-- C may contain multiple periods (e.g. www.help.me.google.com is valid)
-
-The regex for a valid hostname is `"(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.){2,}[a-z0-9][a-z0-9-]{0,61}[a-z0-9]"`.
-
-Master record files must be in the format:
-```
-root_port
-hostname,port
-hostname,port
-...
-```
-where hostnames and ports must follow the rules above. Additionally, hostnames and ports must be uniquely paired (same hostname, same port).
-
-Single record files must be in the format:
-```
-port
-partial-hostname,port
-partial-hostname,port
-...
-```
-where partial-hostname is a subset of a valid hostname (i.e in format A, B.A, C.B.A).
+---
 
 ## Limitations
 
-The following is a list of simplifications made compared to real-world DNS systems. A number of these concepts could be implemented to extend this tools functionality.
+Known simplifications relative to real-world DNS. Strikethrough items have been addressed.
 
-* ~~The changes made to server records during runtime are not persisted.~~
-* Only one type of DNS record is allowed (equivalent of IPv4 records). CNAME for aliases MX for emails and AAAA for IPv6 are some common ones which could be included.
-* ~~Caching of DNS resolutions is not utilized to improve lookup speeds. If implemented, it must include a time-to-live to ensure all cached records are kept fresh.~~
-* Once a lookup has failed (NXDOMAIN received), the resolver does not attempt to find other servers which may have the necessary records.
-* ~~Servers are single-threaded, meaning that only one connection can be held, reducing the efficiency of lookups.~~
-* No server redundancy is present. If one server fails some or all lookups will not be able to be resolved.
-* The request and responses are sent via plaintext over the socket connections, and no extra security measures are in place to prevent spoofing, poisoning.
-* Ports are used instead of IP addresses to remove the need for multiple physical machines, extra networking overhead or cloud infrastructure.
+- ~~Runtime record changes are not persisted~~
+- ~~DNS resolution is not cached~~
+- ~~Servers are single-threaded~~
+- NXDOMAIN responses are final — no retry against alternative servers
+- Only A record equivalents — no CNAME, MX, or AAAA
+- No server redundancy or failover
+- Plaintext socket communication — no TLS, no protection against spoofing or cache poisoning
+- Ports substitute for IP addresses to avoid physical networking requirements

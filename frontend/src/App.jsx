@@ -80,7 +80,7 @@ export default function App() {
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <div style={{ fontFamily: 'var(--mono)', fontWeight: 500, fontSize: 14, color: 'var(--text)', letterSpacing: '0.05em' }}>
-              nx<span style={{ color: 'var(--green)' }}>domain</span>
+              local<span style={{ color: 'var(--green)' }}>dig</span>
             </div>
             {demoMode && (
               <span onClick={() => setShowModal(true)} style={{

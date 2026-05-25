@@ -1,5 +1,5 @@
 """
-nxdomain GUI — FastAPI backend
+localdig GUI — FastAPI backend
 
 Run from repo root:
     uvicorn backend.main:app --reload --port 8000
@@ -22,7 +22,7 @@ async def lifespan(app: FastAPI):
         await state.launcher_process.wait()
 
 
-app = FastAPI(title="nxdomain GUI", lifespan=lifespan)
+app = FastAPI(title="localdig GUI", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -30,6 +30,7 @@ app.add_middleware(
         "http://localhost:5173",
         "http://localhost:3000",
         "https://nxdomain.pages.dev",
+        "https://localdig.pages.dev",
     ],
     allow_methods=["*"],
     allow_headers=["*"],

@@ -13,7 +13,7 @@ export default function DemoModal({ onClose }) {
         {/* header */}
         <div style={{ marginBottom: 20 }}>
           <div style={{ fontFamily: 'var(--mono)', fontSize: 18, fontWeight: 500, marginBottom: 6 }}>
-            nx<span style={{ color: 'var(--green)' }}>domain</span>
+            local<span style={{ color: 'var(--green)' }}>dig</span>
             <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--text-dim)', marginLeft: 12 }}>
               dns infrastructure simulator
             </span>
@@ -66,7 +66,7 @@ export default function DemoModal({ onClose }) {
           <button className="btn btn-green" onClick={onClose} style={{ flex: 1, justifyContent: 'center' }}>
             explore demo →
           </button>
-          <a href="https://github.com/biefeld/nxdomain" target="_blank" rel="noreferrer"
+          <a href="https://github.com/biefeld/localdig" target="_blank" rel="noreferrer"
             style={{ textDecoration: 'none' }}>
             <button className="btn" style={{ whiteSpace: 'nowrap' }}>
               view on github ↗
