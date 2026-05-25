@@ -18,16 +18,12 @@ The web dashboard streams each resolution hop over WebSocket in real time, namel
 
 ## Benchmarking
 
-| Queries | No cache (ms/q) | With cache (ms/q) | Speedup |
-|---|---|---|---|
-| 14 | 4.64 | 4.13 | 1.12x |
-| 140 | 0.56 | 0.49 | 1.16x |
-| 560 | 0.43 | 0.22 | 1.95x |
-| 1,400 | 0.41 | 0.12 | 3.42x |
-| 2,800 | 0.40 | 0.08 | 5.00x |
 
-Per-query latency flattens with caching while growing linearly without. The gap widens asymptotically.
 
+
+Server concurrency stress test             |  Cache vs non-cache benchmarking
+:-------------------------:|:-------------------------:
+![StressTest](benchmarking/StressTest.png)  |  ![CacheBenchmark](benchmarking/CacheBenchmark.png)
 ---
 
 ## Stack
