@@ -34,12 +34,13 @@ export default function DemoModal({ onClose }) {
           borderRadius: 'var(--radius)', padding: '10px 14px', marginBottom: 20,
         }}>
           <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--amber)', marginBottom: 4, fontWeight: 500 }}>
-            ⚠ demo mode
+            ⚠ demo mode - limited functionality
           </div>
           <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--text-dim)', lineHeight: 1.6 }}>
             The Python backend requires local port bindings across 30+ TCP ports — not
             possible on free hosting. This demo simulates the resolution chain with
-            pre-recorded data and realistic latency. Clone the repo to run the real thing.
+            pre-recorded data and realistic latency. Some features may not work as expected. 
+            Clone the repo to run the real thing.
           </div>
         </div>
 
