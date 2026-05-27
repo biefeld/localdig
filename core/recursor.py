@@ -70,8 +70,7 @@ def main(args: list[str]) -> None:
     root_port = int(args[0])
     timeout = float(args[1])
     
-    if len(args) == 3:
-        bypass_cache = (args[2] == "True")
+    bypass_cache = (args[2] == "True") if len(args) == 3 else False
 
     cache = Cache(update_period=5.0)
 
