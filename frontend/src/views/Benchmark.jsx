@@ -1,11 +1,13 @@
 import { useState } from 'react'
-import { apiUrl } from '../api.js'
+import { apiUrl, wsUrl } from '../api.js'
 import BenchmarkTab from '../components/BenchmarkTab.jsx'
 import StressTab from '../components/StressTab.jsx'
 
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar, Cell } from 'recharts'
 
-export default function Benchmark({ infra, demoMode }) {
+
+
+export default function Benchmark({ infra, demoMode, onBenchmarkStart, onBenchmarkEnd }) {
   const [tab, setTab] = useState('benchmark')
 
   return (
@@ -37,7 +39,7 @@ export default function Benchmark({ infra, demoMode }) {
         ))}
       </div>
 
-      {tab === 'benchmark' && <BenchmarkTab demoMode={demoMode} />}
+      {tab === 'benchmark' && <BenchmarkTab demoMode={demoMode} onBenchmarkStart={onBenchmarkStart} onBenchmarkEnd={onBenchmarkEnd} />}
       {tab === 'stress'    && <StressTab demoMode={demoMode} />}
     </div>
   )

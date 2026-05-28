@@ -34,17 +34,17 @@ def parse_benchmark_output(output: str) -> list[dict]:
     current: dict = {}
     for line in output.splitlines():
         line = line.strip()
-        if "Total queries per phase" in line:
+        if "Lookups per hostname" in line:
             if current:
                 results.append(current)
-            current = {"queries": int(line.split(":")[-1].strip())}
+            current = {"repeat": int(line.split(":")[-1].strip())}
+        elif "Total queries per phase" in line:
+            current["queries"] = int(line.split(":")[-1].strip())
         elif "Without caching" in line:
             parts = line.split()
-            current["without_cache_s"] = float(parts[3].replace("s", ""))
             current["without_cache_ms_per"] = float(parts[4].strip("(ms/query)"))
         elif "With caching" in line and "Speedup" not in line:
             parts = line.split()
-            current["with_cache_s"] = float(parts[3].replace("s", ""))
             current["with_cache_ms_per"] = float(parts[4].strip("(ms/query)"))
         elif "Speedup" in line:
             current["speedup"] = float(line.split()[2].replace("x", ""))

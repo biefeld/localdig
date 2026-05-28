@@ -28,10 +28,11 @@ export default function App() {
   const [history, setHistory] = useState([])
   const [lookupHostname, setLookupHostname] = useState('')
   const [targetServer, setTargetServer] = useState(null)
-
+  const [benchmarking, setBenchmarking] = useState(false)
+ 
   useEffect(() => {
     let initialCheckDone = false
-
+ 
     const check = async (isInitial = false) => {
       try {
         const r = await fetch(apiUrl('/api/infrastructure/status'))
@@ -49,21 +50,21 @@ export default function App() {
         }
       }
     }
-
+ 
     check(true)
     const id = setInterval(() => {
-      if (!window.__demoMode) check(false)
+      if (!window.__demoMode && !window.__benchmarking) check(false)
     }, 3000)
     return () => clearInterval(id)
   }, [])
-
-
+ 
+ 
   const groups = ['monitor', 'manage', 'tools']
-
+ 
   return (
     <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
       {showModal && <DemoModal onClose={() => setShowModal(false)} />}
-
+ 
       {/* sidebar */}
       <aside style={{
         width: 180, flexShrink: 0,
@@ -98,7 +99,7 @@ export default function App() {
             </span>
           </div>
         </div>
-
+ 
         {groups.map(grp => (
           <div key={grp}>
             <div style={{
@@ -130,14 +131,14 @@ export default function App() {
           </div>
         ))}
       </aside>
-
+ 
       {/* main */}
       <main style={{ flex: 1, overflow: 'auto', padding: '20px 24px' }}>
         {view === 'dashboard'  && <Dashboard infra={infra} setInfra={setInfra} setView={setView} onNavigateServer={name => { setTargetServer(name); setView('servers') }} demoMode={demoMode} />}
         {view === 'lookup'     && <Lookup infra={infra} history={history} setHistory={setHistory} initialHostname={lookupHostname} clearInitialHostname={() => setLookupHostname('')} demoMode={demoMode} />}
         {view === 'servers'    && <Servers infra={infra} setInfra={setInfra} onLookup={h => { setLookupHostname(h); setView('lookup') }} targetServer={targetServer} clearTargetServer={() => setTargetServer(null)} />}
         {view === 'records'    && <Records infra={infra} onLookup={h => { setLookupHostname(h); setView('lookup') }} onNavigateServer={name => { setTargetServer(name); setView('servers') }} />}
-        {view === 'benchmark'  && <Benchmark infra={infra} demoMode={demoMode} />}
+        {view === 'benchmark'  && <Benchmark infra={infra} demoMode={demoMode} onBenchmarkStart={() => { setBenchmarking(true); window.__benchmarking = true }} onBenchmarkEnd={() => { setBenchmarking(false); window.__benchmarking = false }} />}
       </main>
     </div>
   )

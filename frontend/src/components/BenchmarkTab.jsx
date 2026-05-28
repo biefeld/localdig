@@ -1,54 +1,75 @@
 import { useState } from 'react'
-import { apiUrl } from '../api.js'
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar, Cell } from 'recharts'
+import { wsUrl } from '../api.js'
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 
 const DEMO_BENCHMARK_RESULTS = [
-  { queries: 14,   without_cache_ms_per: 4.64, with_cache_ms_per: 4.13, speedup: 1.12 },
-  { queries: 140,  without_cache_ms_per: 0.56, with_cache_ms_per: 0.49, speedup: 1.16 },
-  { queries: 280,  without_cache_ms_per: 0.48, with_cache_ms_per: 0.31, speedup: 1.55 },
-  { queries: 560,  without_cache_ms_per: 0.43, with_cache_ms_per: 0.22, speedup: 1.95 },
-  { queries: 1400, without_cache_ms_per: 0.41, with_cache_ms_per: 0.12, speedup: 3.42 },
-  { queries: 2800, without_cache_ms_per: 0.40, with_cache_ms_per: 0.08, speedup: 5.00 },
+  { repeat: 1,  queries: 10,  without_cache_ms_per: 1.78, with_cache_ms_per: 1.87, speedup: 0.95 },
+  { repeat: 5,  queries: 50,  without_cache_ms_per: 1.87, with_cache_ms_per: 0.47, speedup: 3.96 },
+  { repeat: 10, queries: 100, without_cache_ms_per: 1.71, with_cache_ms_per: 0.28, speedup: 6.20 },
+  { repeat: 15, queries: 150, without_cache_ms_per: 1.87, with_cache_ms_per: 0.20, speedup: 9.55 },
 ]
 
 const BenchTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null
   return (
     <div style={{ background: 'var(--bg-panel)', border: '1px solid var(--border-hi)', borderRadius: 'var(--radius)', padding: '8px 12px', fontFamily: 'var(--mono)', fontSize: 11 }}>
-      <div style={{ color: 'var(--text-dim)', marginBottom: 4 }}>{label} queries</div>
+      <div style={{ color: 'var(--text-dim)', marginBottom: 4 }}>{label} lookups/hostname</div>
       {payload.map((p, i) => <div key={i} style={{ color: p.color }}>{p.name}: {p.value.toFixed(2)} ms/q</div>)}
     </div>
   )
 }
 
-export default function BenchmarkTab({ demoMode }) {
-  const [masterConf, setMasterConf] = useState('./db/master.conf')
+export default function BenchmarkTab({ demoMode, onBenchmarkStart, onBenchmarkEnd }) {
   const [running, setRunning] = useState(false)
   const [results, setResults] = useState(null)
+  const [currentPhase, setCurrentPhase] = useState(null)
   const [error, setError] = useState(null)
 
   const run = async () => {
-    setRunning(true); setError(null); setResults(null)
+    setRunning(true); setError(null); setResults(null); setCurrentPhase(null)
+
     if (demoMode) {
-      await new Promise(r => setTimeout(r, 1400))
-      setResults(DEMO_BENCHMARK_RESULTS)
+      for (const r of DEMO_BENCHMARK_RESULTS) {
+        setCurrentPhase(r.repeat)
+        await new Promise(res => setTimeout(res, 900))
+        setResults(prev => [...(prev || []), r])
+      }
+      setCurrentPhase(null)
       setRunning(false)
       return
     }
+
+    onBenchmarkStart?.()
+    const collected = []
     try {
-      const r = await fetch(apiUrl('/api/benchmark/run'), {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ master_conf: masterConf }),
+      const ws = new WebSocket(wsUrl('/ws/benchmark'))
+      await new Promise((resolve, reject) => {
+        ws.onopen = () => ws.send(JSON.stringify({ action: 'start' }))
+        ws.onmessage = e => {
+          const msg = JSON.parse(e.data)
+          if (msg.event === 'phase_start') {
+            setCurrentPhase(msg.repeat)
+          } else if (msg.event === 'phase_done') {
+            collected.push(msg.result)
+            setResults([...collected])
+            setCurrentPhase(null)
+          } else if (msg.event === 'complete') {
+            ws.close()
+            resolve()
+          } else if (msg.event === 'error') {
+            ws.close()
+            reject(new Error(msg.message))
+          }
+        }
+        ws.onerror = () => reject(new Error('WebSocket connection failed'))
+        ws.onclose = e => { if (e.code !== 1000) resolve() }
       })
-      const d = await r.json()
-      if (!r.ok) throw new Error(d.detail)
-      setResults(d.results)
     } catch (e) { setError(e.message) }
-    finally { setRunning(false) }
+    finally { setRunning(false); setCurrentPhase(null); onBenchmarkEnd?.() }
   }
 
   const chartData = results?.map(r => ({
-    queries: r.queries,
+    queries: r.repeat,
     'no cache': parseFloat(r.without_cache_ms_per?.toFixed(3) ?? 0),
     'with cache': parseFloat(r.with_cache_ms_per?.toFixed(3) ?? 0),
   }))
@@ -56,25 +77,29 @@ export default function BenchmarkTab({ demoMode }) {
 
   return (
     <>
-      <div className="panel" style={{ padding: 16, marginBottom: 16, display: 'flex', gap: 12, alignItems: 'flex-end' }}>
-        <div style={{ flex: 1 }}>
-          <label style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--text-dim)', display: 'block', marginBottom: 4 }}>master.conf path</label>
-          <input type="text" value={masterConf} onChange={e => setMasterConf(e.target.value)} placeholder="./db/master.conf" style={{ width: '100%' }} />
-        </div>
-        <button className="btn btn-green" onClick={run} disabled={running || !masterConf}>
+      <div className="panel" style={{ padding: 16, marginBottom: 16, display: 'flex', gap: 12, alignItems: 'center' }}>
+        <button className="btn btn-green" onClick={run} disabled={running}>
           {running ? <><span className="spinning">↻</span> running...</> : '▶ run benchmark'}
         </button>
-        {running && <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--text-dim)' }}>~30s</span>}
+        {running && (
+          <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--text-dim)' }}>
+            {currentPhase ? `running ${currentPhase} lookups/hostname...` : 'starting...'}
+          </span>
+        )}
       </div>
 
-      {error && <div style={{ padding: '10px 14px', marginBottom: 16, background: 'var(--red-bg)', border: '1px solid #5c1e1e', borderRadius: 'var(--radius)', fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--red)' }}>{error}</div>}
+      {error && (
+        <div style={{ padding: '10px 14px', marginBottom: 16, background: 'var(--red-bg)', border: '1px solid #5c1e1e', borderRadius: 'var(--radius)', fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--red)' }}>
+          {error}
+        </div>
+      )}
 
       {results && (
         <>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 16 }}>
             {[
               { label: 'volumes tested', value: results.length },
-              { label: 'max queries', value: results.at(-1)?.queries?.toLocaleString() },
+              { label: 'max lookups/hostname', value: results.at(-1)?.repeat },
               { label: 'peak speedup', value: maxSpeedup ? `${maxSpeedup.toFixed(2)}x` : '—' },
             ].map(c => (
               <div key={c.label} className="panel" style={{ padding: '14px 16px' }}>
@@ -85,7 +110,7 @@ export default function BenchmarkTab({ demoMode }) {
           </div>
 
           <div className="panel" style={{ padding: 16, marginBottom: 16 }}>
-            <h2 style={{ marginBottom: 16 }}>ms / query vs. query volume</h2>
+            <h2 style={{ marginBottom: 16 }}>ms / query vs. lookups per hostname</h2>
             <ResponsiveContainer width="100%" height={260}>
               <LineChart data={chartData} margin={{ top: 4, right: 16, bottom: 4, left: 0 }}>
                 <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
@@ -104,7 +129,7 @@ export default function BenchmarkTab({ demoMode }) {
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                  {['queries', 'no cache (ms/q)', 'with cache (ms/q)', 'speedup'].map(h => (
+                  {['lookups/hostname', 'no cache (ms/q)', 'with cache (ms/q)', 'speedup'].map(h => (
                     <th key={h} style={{ padding: '8px 14px', textAlign: 'left', fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 400 }}>{h}</th>
                   ))}
                 </tr>
@@ -112,7 +137,7 @@ export default function BenchmarkTab({ demoMode }) {
               <tbody>
                 {results.map((r, i) => (
                   <tr key={i} style={{ borderBottom: '1px solid var(--border)' }}>
-                    <td style={{ padding: '8px 14px', fontFamily: 'var(--mono)', fontSize: 12 }}>{r.queries?.toLocaleString()}</td>
+                    <td style={{ padding: '8px 14px', fontFamily: 'var(--mono)', fontSize: 12 }}>{r.repeat}</td>
                     <td style={{ padding: '8px 14px', fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--red)' }}>{r.without_cache_ms_per?.toFixed(3)}</td>
                     <td style={{ padding: '8px 14px', fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--green)' }}>{r.with_cache_ms_per?.toFixed(3)}</td>
                     <td style={{ padding: '8px 14px', fontFamily: 'var(--mono)', fontSize: 12, color: r.speedup > 2 ? 'var(--amber)' : 'var(--text)' }}>{r.speedup?.toFixed(2)}x</td>

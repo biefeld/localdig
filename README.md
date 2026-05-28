@@ -46,7 +46,7 @@ Server concurrency stress test             |  Cache vs non-cache benchmarking
 python3 core/launcher.py db/master.conf db/singles
 
 # CLI resolver
-python3 cpre/recursor.py <root_port> <timeout> [<bypass_cache>]
+python3 core/recursor.py <root_port> <timeout> [<bypass_cache>]
 
 # web dashboard - backend
 pip install -r backend/requirements.txt

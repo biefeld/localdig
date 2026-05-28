@@ -5,35 +5,36 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsi
 
 const DEMO_STRESS_RESULTS = {
   results: [
-    { hostname: 'www.anthropic.com',    status: 'resolved', port: 23001, ms: 3.1 },
-    { hostname: 'api.github.com',        status: 'resolved', port: 9443,  ms: 2.9 },
-    { hostname: 'www.discord.com',       status: 'resolved', port: 13001, ms: 3.4 },
-    { hostname: 'www.spotify.com',       status: 'resolved', port: 14001, ms: 3.2 },
-    { hostname: 'www.openai.com',        status: 'resolved', port: 22001, ms: 2.8 },
-    { hostname: 'api.stripe.com',        status: 'resolved', port: 21002, ms: 3.5 },
-    { hostname: 'www.vercel.com',        status: 'resolved', port: 18001, ms: 2.7 },
-    { hostname: 'www.cloudflare.com',    status: 'resolved', port: 11500, ms: 3.0 },
-    { hostname: 'www.notion.so',         status: 'resolved', port: 16001, ms: 3.3 },
-    { hostname: 'www.twitch.tv',         status: 'resolved', port: 12001, ms: 2.6 },
-    { hostname: 'api.netlify.com',       status: 'resolved', port: 19002, ms: 3.1 },
-    { hostname: 'www.heroku.com',        status: 'resolved', port: 20001, ms: 2.9 },
-    { hostname: 'www.reddit.com',        status: 'resolved', port: 10240, ms: 3.2 },
-    { hostname: 'www.stackoverflow.com', status: 'resolved', port: 11300, ms: 3.0 },
-    { hostname: 'api.figma.com',         status: 'resolved', port: 15002, ms: 2.8 },
-    { hostname: 'www.linear.app',        status: 'resolved', port: 17001, ms: 3.4 },
-    { hostname: 'www.huggingface.co',    status: 'resolved', port: 24001, ms: 2.7 },
-    { hostname: 'api.openai.com',        status: 'resolved', port: 22002, ms: 3.1 },
-    { hostname: 'www.minecraft.net',     status: 'resolved', port: 6391,  ms: 2.9 },
-    { hostname: 'www.battle.net',        status: 'resolved', port: 12839, ms: 3.3 },
+    { hostname: 'api.stackoverflow.com',        status: 'resolved', port: 11301, ms: 22.2 },
+    { hostname: 'api.netlify.com',              status: 'resolved', port: 19002, ms: 24.3 },
+    { hostname: 'www.netlify.com',              status: 'resolved', port: 19001, ms: 20.8 },
+    { hostname: 'dashboard.heroku.com',         status: 'resolved', port: 20002, ms: 21.9 },
+    { hostname: 'mcdonalds.co.uk',              status: 'resolved', port: 28109, ms: 20.4 },
+    { hostname: 'www.pinterest.co.uk',          status: 'resolved', port: 6804,  ms: 21.3 },
+    { hostname: 'www.battle.net',               status: 'resolved', port: 12839, ms: 24.6 },
+    { hostname: 'claim-points.mcdonalds.com.au',status: 'resolved', port: 7219,  ms: 24.3 },
+    { hostname: 'old.reddit.com',               status: 'resolved', port: 10241, ms: 24.1 },
+    { hostname: 'api.linear.app',               status: 'resolved', port: 17002, ms: 27.7 },
+    { hostname: 'www.netlify.com',              status: 'resolved', port: 19001, ms: 24.1 },
+    { hostname: 'api.github.com',               status: 'resolved', port: 9443,  ms: 24.3 },
+    { hostname: 'www.vercel.com',               status: 'resolved', port: 18001, ms: 24.0 },
+    { hostname: 'www.spotify.com',              status: 'resolved', port: 14001, ms: 27.6 },
+    { hostname: 'www.vercel.com',               status: 'resolved', port: 18001, ms: 24.3 },
+    { hostname: 'bbc.co.uk',                    status: 'resolved', port: 6349,  ms: 24.0 },
+    { hostname: 'www.minecraft.net',            status: 'resolved', port: 6391,  ms: 27.1 },
+    { hostname: 'www.twitch.tv',                status: 'resolved', port: 12001, ms: 28.4 },
+    { hostname: 'www.stackoverflow.com',        status: 'resolved', port: 11300, ms: 24.0 },
+    { hostname: 'www.spotify.com',              status: 'resolved', port: 14001, ms: 27.5 },
   ],
   summary: {
     total: 20, resolved: 20, nxdomain: 0, errors: 0,
-    parallel_ms: 18.4,
-    sequential_estimate_ms: 61.6,
-    speedup: 3.35,
-    avg_ms_per_lookup: 3.08,
+    parallel_ms: 29.3,
+    sequential_estimate_ms: 486.0,
+    speedup: 16.59,
+    avg_ms_per_lookup: 24.35,
   }
 }
+
 
 
 const StressTooltip = ({ active, payload, label }) => {
@@ -48,7 +49,7 @@ const StressTooltip = ({ active, payload, label }) => {
 
 
 export default function StressTab({ demoMode }) {
-  const [count, setCount] = useState(20)
+  const [count, setCount] = useState(50)
   const [running, setRunning] = useState(false)
   const [data, setData] = useState(null)
   const [error, setError] = useState(null)
@@ -70,7 +71,7 @@ export default function StressTab({ demoMode }) {
       if (!r.ok) throw new Error(d.detail)
       setData(d)
     } catch (e) { setError(e.message) }
-    finally { setRunning(false) }
+    finally { setRunning(false); onBenchmarkEnd?.() }
   }
 
   const barData = data?.results.map(r => ({
@@ -93,7 +94,7 @@ export default function StressTab({ demoMode }) {
       <div className="panel" style={{ padding: 16, marginBottom: 16, display: 'flex', gap: 12, alignItems: 'flex-end' }}>
         <div>
           <label style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--text-dim)', display: 'block', marginBottom: 4 }}>concurrent lookups</label>
-          <input type="number" value={count} onChange={e => setCount(e.target.value)}
+          <input type="number" value={demoMode ? 20 : count} onChange={e => setCount(e.target.value)}
             min="1" max="50" style={{ width: 80 }} />
         </div>
         <button className="btn btn-green" onClick={run} disabled={running || !count}>
