@@ -2,7 +2,6 @@ import asyncio
 import datetime
 import socket
 import time
-from typing import Optional
 
 from fastapi import WebSocket
 
@@ -11,18 +10,21 @@ from backend import state
 from backend.services.connections import conn_inc, conn_dec, broadcast_conn
 
 
-def tcp_send(port: int, message: str, timeout: float = 2.0) -> str:
-    """Send a raw TCP message to a server and return the response."""
-    with socket.create_connection(("127.0.0.1", port), timeout=timeout) as s:
-        s.sendall((message + "\n").encode())
-        data = b""
-        s.settimeout(timeout)
+def tcp_send(port: int, message: str, timeout: float = 2.0, retries: int = 3) -> str:
+    """Send a raw TCP message to a server and return the single-line response."""
+    for attempt in range(retries):
         try:
-            while chunk := s.recv(4096):
-                data += chunk
-        except (socket.timeout, ConnectionResetError):
-            pass
-    return data.decode().strip()
+            with socket.create_connection(("127.0.0.1", port), timeout=timeout) as s:
+                s.sendall((message + "\n").encode())
+                return s.recv(1024).decode().strip()
+        except ConnectionRefusedError:
+            if attempt < retries - 1:
+                time.sleep(0.05 * (attempt + 1))
+            else:
+                return "NXDOMAIN"
+        except OSError:
+            return "NXDOMAIN"
+    return "NXDOMAIN"
 
 
 async def resolve_and_stream(ws: WebSocket, hostname: str, root_port: int) -> None:
