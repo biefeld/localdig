@@ -49,7 +49,7 @@ python3 core/launcher.py db/master.conf db/singles
 python3 core/recursor.py <root_port> <timeout> [<bypass_cache>]
 
 # web dashboard - backend
-pip install -r backend/requirements.txt
+pip install -e .
 uvicorn backend.main:app --reload --port 8000
 
 # web dashboard - frontend
